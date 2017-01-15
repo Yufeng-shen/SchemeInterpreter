@@ -1,6 +1,7 @@
 module MyParser where
 import Control.Monad
 import Text.ParserCombinators.Parsec hiding (spaces)
+import Evaluation
 
 symbol :: Parser Char
 symbol = oneOf "!@#$%^&*()_+=-/:<=>?~"
@@ -8,7 +9,7 @@ symbol = oneOf "!@#$%^&*()_+=-/:<=>?~"
 readExpr :: String -> String
 readExpr input= case parse (spaces >> parseExpr) "lisp" input of
     Left err -> "No match: " ++ show err
-    Right val -> "Found value: "  ++ showVal val
+    Right val -> val
 
 data LispVal = Atom String
     | List [LispVal]
@@ -17,12 +18,6 @@ data LispVal = Atom String
     | String String
     | Bool Bool
 
-showVal :: LispVal -> String
-showVal (String contents) = "\"" ++ contents ++ "\"" ++ " String"
-showVal (Atom name) = name ++ " Atom"
-showVal (Number contents) = show contents ++ " Number"
-showVal (Bool True) = "#t" ++ " Bool True"
-showVal (Bool False) = "#f" ++ " Bool False"
 
 parseString :: Parser LispVal
 parseString = do
@@ -44,11 +39,34 @@ parseAtom = do
 parseNumber :: Parser LispVal
 parseNumber = liftM (Number . read) $ many1 digit
 
+parseList :: Parser LispVal
+parseList = liftM List $ sepBy parseExpr spaces1
+
+parseDottedList :: Parser LispVal
+parseDottedList = do
+    head <- endBy parseExpr spaces1
+    tail <- char '.' >> spaces1 >> parseExpr
+    return $ DottedList head tail
+
+parseQuoted :: Parser LispVal
+parseQuoted = do
+    char '\''
+    x <- parseExpr
+    return $ List [Atom "quote", x]
+
 parseExpr :: Parser LispVal
 parseExpr = parseAtom
     <|> parseString
     <|> parseNumber
+    <|> parseQuoted
+    <|> do char '('
+        x <- try parseList <|> parseDottedList
+        char ')'
+        return x
+
 
 spaces :: Parser ()
 spaces = skipMany space
 
+spaces1 :: Parser ()
+spaces1 = skipMany1 space
