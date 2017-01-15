@@ -1,15 +1,10 @@
 module MyParser where
 import Control.Monad
 import Text.ParserCombinators.Parsec hiding (spaces)
-import Evaluation
 
 symbol :: Parser Char
-symbol = oneOf "!@#$%^&*()_+=-/:<=>?~"
+symbol = oneOf "!@#$%^&*|_+-/:<=>?~"
 
-readExpr :: String -> String
-readExpr input= case parse (spaces >> parseExpr) "lisp" input of
-    Left err -> "No match: " ++ show err
-    Right val -> val
 
 data LispVal = Atom String
     | List [LispVal]
@@ -60,10 +55,24 @@ parseExpr = parseAtom
     <|> parseNumber
     <|> parseQuoted
     <|> do char '('
-        x <- try parseList <|> parseDottedList
-        char ')'
-        return x
+           x <- try parseList <|> parseDottedList
+           char ')'
+           return x
 
+
+showVal :: LispVal -> String
+showVal (String contents) = "\"" ++ contents ++ "\"" ++ " String"
+showVal (Atom name) = name ++ " Atom"
+showVal (Number contents) = show contents ++ " Number"
+showVal (Bool True) = "#t" 
+showVal (Bool False) = "#f" 
+showVal (List contents) = "(" ++ unwordsList contents ++ ")" ++" List"
+showVal (DottedList head tail) = "(" ++ unwordsList head ++ " . " ++ showVal tail ++ ")" ++ " Dotted"
+
+unwordsList :: [LispVal] -> String
+unwordsList = unwords . map showVal
+
+instance Show LispVal where show = showVal
 
 spaces :: Parser ()
 spaces = skipMany space

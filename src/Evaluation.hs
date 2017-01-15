@@ -1,22 +1,41 @@
 module Evaluation where
+import Control.Monad.Error
 import Text.ParserCombinators.Parsec hiding (spaces)
+import MyParser
+import MyError
  
-showVal :: LispVal -> String
-showVal (String contents) = "\"" ++ contents ++ "\"" 
-showVal (Atom name) = name 
-showVal (Number contents) = show contents 
-showVal (Bool True) = "#t" 
-showVal (Bool False) = "#f" 
-showVal (List contents) = "(" ++ unwordsList contents ++ ")"
-showVal (DottedList head tail) = "(" ++ unwordsList head ++ " . " ++ showVal tail ++ ")"
 
-unwordsList :: [LispVal] -> String
-unwordsList = unwords . map showVal
+eval :: LispVal -> ThrowError LispVal
+eval val@(String _) = return val
+eval val@(Number _) = return val
+eval val@(Bool _) = return val
+eval (List [Atom "quote", val]) = return val
+eval (List ((Atom func) : args)) = mapM eval args >>= apply func
+eval badForm = throwError $ BadSpecialForm "bad special form" badForm
 
-instance Show LispVal where show = showVal
+apply :: String -> [LispVal] -> ThrowError LispVal
+apply func args = maybe (throwError $ NotFunction "bad primitive function" func) ($ args) $ lookup func primitives
 
-eval :: LispVal -> LispVal
-eval val@(String _) = val
-eval val@(Number _) = val
-eval val@(Bool _) = val
-eval (List [Atom "quote", val]) = val
+primitives :: [(String, [LispVal] -> ThrowError LispVal)]
+primitives = [("+", numericBinop (+)),
+              ("-", numericBinop (-)),
+              ("*", numericBinop (*)),
+              ("/", numericBinop div),
+              ("mod", numericBinop mod),
+              ("quotient", numericBinop quot),
+              ("remainder", numericBinop rem)]
+
+numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowError LispVal
+numericBinop op [] = throwError $ NumArgs 2 []
+numericBinop op oneV@[_] = throwError $ NumArgs 2 oneV
+numericBinop op params = return (Number $ mapM unpackNum params >>= foldl1 op)
+
+unpackNum :: LispVal -> ThrowError Integer
+unpackNum (Number n) = return n
+unpackNum (String s) = let parsed = reads s :: [(Integer, String)] in
+                            if null parsed
+                            then throwError $ TypeMismatch "number" $ String s
+                            else return $ fst $ parsed !! 0
+unpackNum (List [n]) =unpackNum n
+unpackNum _ = 0
+
