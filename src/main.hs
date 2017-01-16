@@ -8,7 +8,6 @@ import MyError
 import Control.Monad.Error
 import MyREPL
 
-
 main :: IO ()
 main = do args <- getArgs
           case length args of

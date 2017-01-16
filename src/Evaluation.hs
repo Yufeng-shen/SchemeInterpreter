@@ -2,8 +2,7 @@ module Evaluation where
 import Control.Monad.Error
 import Text.ParserCombinators.Parsec hiding (spaces)
 import MyParser
-import MyError
- 
+import MyError 
 
 eval :: LispVal -> ThrowError LispVal
 eval val@(String _) = return val
