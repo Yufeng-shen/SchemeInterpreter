@@ -28,7 +28,7 @@ primitives = [("+", numericBinop (+)),
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowError LispVal
 numericBinop op [] = throwError $ NumArgs 2 []
 numericBinop op oneV@[_] = throwError $ NumArgs 2 oneV
-numericBinop op params = return (Number $ mapM unpackNum params >>= foldl1 op)
+numericBinop op params = mapM unpackNum params >>= return . Number . foldl1 op
 
 unpackNum :: LispVal -> ThrowError Integer
 unpackNum (Number n) = return n
@@ -37,5 +37,5 @@ unpackNum (String s) = let parsed = reads s :: [(Integer, String)] in
                             then throwError $ TypeMismatch "number" $ String s
                             else return $ fst $ parsed !! 0
 unpackNum (List [n]) =unpackNum n
-unpackNum _ = 0
+unpackNum notNum = throwError $ TypeMismatch "number" notNum
 
